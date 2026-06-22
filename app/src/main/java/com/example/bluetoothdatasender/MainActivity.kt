@@ -56,7 +56,14 @@ class MainActivity : AppCompatActivity() {
 
         btnSelectDevice.setOnClickListener {
             if (checkBluetoothPermissions()) {
-                showDeviceSelectionDialog()
+                if (bluetoothAdapter?.isEnabled == true) {
+                    showDeviceSelectionDialog()
+                } else {
+                    val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                        startActivity(enableBtIntent)
+                    }
+                }
             } else {
                 requestBluetoothPermissions()
             }
@@ -96,7 +103,7 @@ class MainActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, deviceListStrings)
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select ESP32 Device")
-        
+
         builder.setAdapter(adapter) { _, which ->
             val selectedInfo = deviceListStrings[which]
             selectedMacAddress = deviceMap[selectedInfo]
@@ -119,16 +126,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun startScanning(adapter: ArrayAdapter<String>, list: MutableList<String>, map: MutableMap<String, String>) {
         if (checkBluetoothPermissions()) {
+            if (bluetoothAdapter?.isEnabled == false) {
+                Toast.makeText(this, "Please enable Bluetooth first", Toast.LENGTH_SHORT).show()
+                return
+            }
             discoveredDevices.clear()
             Toast.makeText(this, "Scanning started...", Toast.LENGTH_SHORT).show()
-            
+
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                 if (bluetoothAdapter?.isDiscovering == true) {
                     bluetoothAdapter?.cancelDiscovery()
                 }
                 bluetoothAdapter?.startDiscovery()
             }
-            
+
             currentScanningAdapter = adapter
             currentScanningList = list
             currentScanningMap = map
@@ -151,13 +162,13 @@ class MainActivity : AppCompatActivity() {
                         @Suppress("DEPRECATION")
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     }
-                    
+
                     device?.let {
                         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                             val name = it.name ?: "Unknown Device"
                             val address = it.address
                             val info = "$name\n$address"
-                            
+
                             if (!discoveredDevices.contains(it) && currentScanningList?.contains(info) == false) {
                                 discoveredDevices.add(it)
                                 currentScanningList?.add(info)
@@ -180,7 +191,7 @@ class MainActivity : AppCompatActivity() {
 
         thread {
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && 
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                     ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                     return@thread
                 }
