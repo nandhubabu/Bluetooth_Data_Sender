@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center_horizontal">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ESP32 Bluetooth Controller"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="32dp"/>
+
+    <Button
+        android:id="@+id/btnSelectDevice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select / Scan for Device"
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/tvSelectedDevice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Selected: None"
+        android:textStyle="italic"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnConnect"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Connect to Selected"
+        android:layout_marginBottom="32dp"
+        android:enabled="false"/>
+
+    <Button
+        android:id="@+id/btnSendData"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Send Test Ping"
+        android:enabled="false"/>
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Status: Disconnected"
+        android:layout_marginTop="24dp"
+        android:textSize="16sp"/>
+
+</LinearLayout>
