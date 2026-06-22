@@ -4,7 +4,6 @@ import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,6 +11,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.TextView
@@ -21,21 +21,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.IOException
-import java.io.OutputStream
 import java.util.UUID
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
     private var bluetoothAdapter: BluetoothAdapter? = null
-    private var bluetoothSocket: BluetoothSocket? = null
-    private var outputStream: OutputStream? = null
     private val sppUuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     private lateinit var btnSelectDevice: Button
     private lateinit var tvSelectedDevice: TextView
     private lateinit var btnConnect: Button
     private lateinit var btnSendData: Button
+    private lateinit var btnNotificationAccess: Button
     private lateinit var tvStatus: TextView
 
     private var selectedMacAddress: String? = null
@@ -50,6 +48,15 @@ class MainActivity : AppCompatActivity() {
         btnConnect = findViewById(R.id.btnConnect)
         btnSendData = findViewById(R.id.btnSendData)
         tvStatus = findViewById(R.id.tvStatus)
+
+        // Add a hidden button or just check on start for notification access
+        btnNotificationAccess = Button(this).apply {
+            text = "Enable Maps Reader"
+            setOnClickListener {
+                startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+            }
+        }
+        (findViewById<android.widget.LinearLayout>(R.id.main_layout)).addView(btnNotificationAccess)
 
         val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
@@ -76,7 +83,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnSendData.setOnClickListener {
-            sendDataToEsp32("Ping from Android! Time: ${System.currentTimeMillis()}\n")
+            val navCommand = "NAV:TEST_CMD=READY\n"
+            com.example.bluetoothdatasender.BluetoothManager.sendData(navCommand)
+            Toast.makeText(this, "Test Command Sent", Toast.LENGTH_SHORT).show()
         }
 
         // Register for discovery results
@@ -90,9 +99,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun showDeviceSelectionDialog() {
         val deviceListStrings = mutableListOf<String>()
-        val deviceMap = mutableMapOf<String, String>() // Name -> MAC
+        val deviceMap = mutableMapOf<String, String>()
 
-        // 1. Add Paired Devices
         if ((ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             val pairedDevices = bluetoothAdapter?.bondedDevices
             pairedDevices?.forEach { device ->
@@ -102,7 +110,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Add Discovered Devices
         discoveredDevices.forEach { device ->
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                 val name = device.name ?: "Unknown Device"
@@ -114,7 +121,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 3. Setup Dialog
         val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, deviceListStrings)
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select ESP32 Device")
@@ -127,16 +133,13 @@ class MainActivity : AppCompatActivity() {
             bluetoothAdapter?.cancelDiscovery()
         }
 
-        builder.setNeutralButton("Scan for New", null) // Set listener later to avoid dismissal
-
+        builder.setNeutralButton("Scan for New", null)
         builder.setNegativeButton("Cancel") { dialog, _ ->
             bluetoothAdapter?.cancelDiscovery()
             dialog.dismiss()
         }
 
         val dialog = builder.show()
-
-        // Set listener after showing to keep dialog open during scan
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
             startScanning(adapter, deviceListStrings, deviceMap)
         }
@@ -222,10 +225,13 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val device: BluetoothDevice? = bluetoothAdapter?.getRemoteDevice(macAddress)
-                bluetoothSocket = device?.createRfcommSocketToServiceRecord(sppUuid)
+                val socket = device?.createRfcommSocketToServiceRecord(sppUuid)
 
-                bluetoothSocket?.connect()
-                outputStream = bluetoothSocket?.outputStream
+                socket?.connect()
+
+                // Update Singleton
+                com.example.bluetoothdatasender.BluetoothManager.bluetoothSocket = socket
+                com.example.bluetoothdatasender.BluetoothManager.outputStream = socket?.outputStream
 
                 runOnUiThread {
                     tvStatus.text = "Status: Connected"
@@ -238,25 +244,6 @@ class MainActivity : AppCompatActivity() {
                     tvStatus.text = "Status: Connection Failed"
                     btnConnect.isEnabled = true
                     Toast.makeText(this, "Failed to connect. Check ESP32 power.", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
-
-    private fun sendDataToEsp32(message: String) {
-        thread {
-            try {
-                outputStream?.write(message.toByteArray())
-                runOnUiThread {
-                    Toast.makeText(this, "Data Sent!", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: IOException) {
-                e.printStackTrace()
-                runOnUiThread {
-                    tvStatus.text = "Status: Disconnected"
-                    btnSendData.isEnabled = false
-                    btnConnect.isEnabled = true
-                    Toast.makeText(this, "Failed to send data.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -289,7 +276,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         try {
             unregisterReceiver(receiver)
-            bluetoothSocket?.close()
+            com.example.bluetoothdatasender.BluetoothManager.bluetoothSocket?.close()
         } catch (e: Exception) {
             e.printStackTrace()
         }
