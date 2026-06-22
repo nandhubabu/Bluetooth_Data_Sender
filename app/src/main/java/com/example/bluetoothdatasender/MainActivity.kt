@@ -80,7 +80,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Register for discovery results
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+        val filter = IntentFilter()
+        filter.addAction(BluetoothDevice.ACTION_FOUND)
+        filter.addAction(BluetoothDevice.ACTION_NAME_CHANGED)
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
         registerReceiver(receiver, filter)
     }
@@ -99,7 +102,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Setup Dialog
+        // 2. Add Discovered Devices
+        discoveredDevices.forEach { device ->
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                val name = device.name ?: "Unknown Device"
+                val info = "$name\n${device.address}"
+                if (!deviceListStrings.contains(info)) {
+                    deviceListStrings.add(info)
+                    deviceMap[info] = device.address
+                }
+            }
+        }
+
+        // 3. Setup Dialog
         val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, deviceListStrings)
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select ESP32 Device")
@@ -112,16 +127,19 @@ class MainActivity : AppCompatActivity() {
             bluetoothAdapter?.cancelDiscovery()
         }
 
-        builder.setNeutralButton("Scan for New") { _, _ ->
-            startScanning(adapter, deviceListStrings, deviceMap)
-        }
+        builder.setNeutralButton("Scan for New", null) // Set listener later to avoid dismissal
 
         builder.setNegativeButton("Cancel") { dialog, _ ->
             bluetoothAdapter?.cancelDiscovery()
             dialog.dismiss()
         }
 
-        builder.show()
+        val dialog = builder.show()
+
+        // Set listener after showing to keep dialog open during scan
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            startScanning(adapter, deviceListStrings, deviceMap)
+        }
     }
 
     private fun startScanning(adapter: ArrayAdapter<String>, list: MutableList<String>, map: MutableMap<String, String>) {
@@ -137,7 +155,10 @@ class MainActivity : AppCompatActivity() {
                 if (bluetoothAdapter?.isDiscovering == true) {
                     bluetoothAdapter?.cancelDiscovery()
                 }
-                bluetoothAdapter?.startDiscovery()
+                val success = bluetoothAdapter?.startDiscovery()
+                if (success == false) {
+                    Toast.makeText(this, "Could not start scan. Is Location (GPS) turned ON?", Toast.LENGTH_LONG).show()
+                }
             }
 
             currentScanningAdapter = adapter
@@ -155,7 +176,7 @@ class MainActivity : AppCompatActivity() {
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                BluetoothDevice.ACTION_FOUND -> {
+                BluetoothDevice.ACTION_FOUND, BluetoothDevice.ACTION_NAME_CHANGED -> {
                     val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
                     } else {
@@ -174,9 +195,13 @@ class MainActivity : AppCompatActivity() {
                                 currentScanningList?.add(info)
                                 currentScanningMap?.put(info, address)
                                 currentScanningAdapter?.notifyDataSetChanged()
+                                Toast.makeText(context, "Found: $name", Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
+                }
+                BluetoothAdapter.ACTION_DISCOVERY_STARTED -> {
+                    Toast.makeText(context, "Search started...", Toast.LENGTH_SHORT).show()
                 }
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
                     Toast.makeText(context, "Scanning finished", Toast.LENGTH_SHORT).show()
