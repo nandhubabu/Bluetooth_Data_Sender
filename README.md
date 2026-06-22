@@ -1,24 +1,34 @@
-# Bluetooth Data Sender
+# Bluetooth Maps to ESP32 Sender
 
-An Android application designed to connect to an ESP32 (or other Bluetooth SPP devices) and send data over Serial Port Profile (SPP).
+A specialized Android application designed to bridge Google Maps navigation directions to an ESP32 or other Bluetooth-enabled microcontrollers.
 
-## Features
-- **Device Selection**: Choose from a list of already paired Bluetooth devices.
-- **Scanning**: Scan for new nearby Bluetooth devices.
-- **Connection Management**: Connect and disconnect from a selected device.
-- **Data Transmission**: Send test pings or custom data strings to the connected device.
-- **Modern Permissions**: Fully compatible with Android 12+ (API 31) permission model.
+## 🚀 Key Features
+- **Live Google Maps Integration**: Uses a `NotificationListenerService` to "read" active navigation instructions and beam them to your hardware.
+- **Background Persistence**: The Bluetooth connection stays alive in the background while you navigate using the Google Maps app.
+- **Smart Device Selection**: Browse both already **paired** devices and **scan** for new nearby Bluetooth hardware.
+- **Automatic Formatting**: Navigation instructions are parsed and sent as easy-to-read strings: `MAPS: [Direction] | [Distance/Street]`.
+- **Modern Compatibility**: Fully optimized for Android 12, 13, and 14 with appropriate permission handling.
 
-## Getting Started
-1. Clone the repository.
-2. Open the project in Android Studio.
-3. Build and run the app on an Android device.
-4. Ensure your ESP32 has Bluetooth Serial enabled.
+## 🛠 How to Use
+1. **Prepare Hardware**: Ensure your ESP32 is running a Bluetooth Serial sketch (SPP).
+2. **Connect**:
+   - Open the app and tap **"Select / Scan for Device"**.
+   - Select your hardware from the list.
+   - Tap **"Connect to Selected"**.
+3. **Enable Reader**:
+   - Tap the **"Enable Maps Reader"** button.
+   - In the system list that appears, find **"BluetoothDataSender"** and toggle it to **ON**.
+4. **Navigate**: Open Google Maps and start a navigation route. Your directions will now automatically stream to your hardware.
 
-## Permissions Required
-- `BLUETOOTH_CONNECT`: To connect to paired devices.
-- `BLUETOOTH_SCAN`: To scan for new devices.
-- `ACCESS_FINE_LOCATION`: Required for Bluetooth scanning on many Android versions.
+## 🔒 Permissions Required
+- **Bluetooth Connect & Scan**: To find and talk to your hardware.
+- **Location (GPS)**: Required by Android for Bluetooth scanning discovery.
+- **Notification Access**: Required to "secretly" read directions from the Google Maps notification bar.
 
-## License
+## 📂 Project Structure
+- `BluetoothManager.kt`: A thread-safe Singleton that manages the shared Bluetooth socket.
+- `MapNotificationListener.kt`: The background service that intercepts and parses Maps notifications.
+- `MainActivity.kt`: The user interface for connection management and device discovery.
+
+## 📜 License
 This project is licensed under the MIT License.

@@ -11,7 +11,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.TextView
@@ -49,7 +48,6 @@ class MainActivity : AppCompatActivity() {
         btnSendData = findViewById(R.id.btnSendData)
         tvStatus = findViewById(R.id.tvStatus)
 
-        // Add a hidden button or just check on start for notification access
         btnNotificationAccess = Button(this).apply {
             text = "Enable Maps Reader"
             setOnClickListener {
@@ -77,13 +75,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnConnect.setOnClickListener {
-            selectedMacAddress?.let { mac ->
-                connectToEsp32(mac)
+            if (com.example.bluetoothdatasender.BluetoothManager.isConnected()) {
+                com.example.bluetoothdatasender.BluetoothManager.disconnect()
+                updateStatusUI(false)
+            } else {
+                selectedMacAddress?.let { mac ->
+                    connectToEsp32(mac)
+                }
             }
         }
 
         btnSendData.setOnClickListener {
-            val navCommand = "NAV:TEST_CMD=READY\n"
+            val navCommand = "NAV:TURN=LEFT;DIST=150m;DEST=Hospital\n"
             com.example.bluetoothdatasender.BluetoothManager.sendData(navCommand)
             Toast.makeText(this, "Test Command Sent", Toast.LENGTH_SHORT).show()
         }
@@ -95,6 +98,25 @@ class MainActivity : AppCompatActivity() {
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
         registerReceiver(receiver, filter)
+
+        // Initial UI state
+        updateStatusUI(com.example.bluetoothdatasender.BluetoothManager.isConnected())
+    }
+
+    private fun updateStatusUI(connected: Boolean) {
+        runOnUiThread {
+            if (connected) {
+                tvStatus.text = "Status: Connected"
+                btnConnect.text = "Disconnect"
+                btnConnect.isEnabled = true
+                btnSendData.isEnabled = true
+            } else {
+                tvStatus.text = "Status: Disconnected"
+                btnConnect.text = "Connect to Selected"
+                btnConnect.isEnabled = selectedMacAddress != null
+                btnSendData.isEnabled = false
+            }
+        }
     }
 
     private fun showDeviceSelectionDialog() {
@@ -233,16 +255,15 @@ class MainActivity : AppCompatActivity() {
                 com.example.bluetoothdatasender.BluetoothManager.bluetoothSocket = socket
                 com.example.bluetoothdatasender.BluetoothManager.outputStream = socket?.outputStream
 
+                updateStatusUI(true)
                 runOnUiThread {
-                    tvStatus.text = "Status: Connected"
-                    btnSendData.isEnabled = true
                     Toast.makeText(this, "Connected successfully!", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: IOException) {
                 e.printStackTrace()
+                updateStatusUI(false)
                 runOnUiThread {
                     tvStatus.text = "Status: Connection Failed"
-                    btnConnect.isEnabled = true
                     Toast.makeText(this, "Failed to connect. Check ESP32 power.", Toast.LENGTH_LONG).show()
                 }
             }
@@ -276,7 +297,9 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         try {
             unregisterReceiver(receiver)
-            com.example.bluetoothdatasender.BluetoothManager.bluetoothSocket?.close()
+            // DO NOT close the socket here if we want background reading to continue
+            // Unless the activity is actually finishing and we don't want background support.
+            // But since we have a NotificationListenerService, the process will stay alive.
         } catch (e: Exception) {
             e.printStackTrace()
         }
