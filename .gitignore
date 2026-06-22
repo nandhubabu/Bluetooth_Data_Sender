@@ -1,15 +1,48 @@
+# Built objects
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Gradle files
+.gradle/
+build/
+
+# IntelliJ IDEA files
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+*.iws
+
+# Android Studio files
 local.properties
+.idea/caches
+.idea/libraries
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.idea/deploymentTargetDropDown.xml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Key files
+*.jks
+*.keystore
+!debug.keystore
+
+# Google Services
+google-services.json
